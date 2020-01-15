@@ -1,0 +1,125 @@
+<html>
+
+<body style="text-align: center">
+    <h1>Welcome to the jumpcutter</h1>
+    <button onclick="document.getElementById('out').src = ('url').value; activate()">Start Video</button>
+    <br>
+    <br>
+    <!--<audio id="mainAudio" controls src="video-test.mp3"></audio>-->
+    URL: <input id="url" placeholder="Enter your URL" type="text">
+    <br>
+    <br>
+    <video width="60%" id="mainAudio" controls src=""></video>
+    <br>
+    Talking playback speed: <span id="talkDisplay">2</span>x
+    <br>
+    <input id="talk" type="range" min="0.1" max="15" value="2" step="0.1" oninput="document.getElementById('talkDisplay').innerHTML = this.value">
+    <br>
+    Silence playback speed: <span id="silenceDisplay">5</span>x
+    <br>
+    <input id="silence" type="range" min="0.1" max="15" value="5" step="0.1" oninput="document.getElementById('silenceDisplay').innerHTML = this.value">
+    <br>
+    Threshold: <span id="thresholdDisplay">1.2</span>%
+    <br>
+    <input id="threshold" type="range" min="0.1" max="10" value="1.2" step="0.1" oninput="document.getElementById('thresholdDisplay').innerHTML = this.value">
+    <br>
+    Change Delay: <span id="delayDisplay">30</span>ms
+    <br>
+    <input id="delay" type="range" min="1" max="100" value="30" step="1" oninput="document.getElementById('delayDisplay').innerHTML = this.value">
+    <br>
+    <div id="out" style="width: 30%; height: 30%"><h1>Talking</h1></div>
+    <script>
+        var changeFlag = false;
+        var timeoutCancel = -1;
+        var currentSpeed = 1; // I don't wanna put strain on the browser
+        // var didActivate = false;
+        
+        var talk = document.getElementById('talk');
+        var silence = document.getElementById('silence');
+        var threshold = document.getElementById('threshold');
+        var delay = document.getElementById('delay');
+        function activate(){ // Need this function because the DAMN CHROME NEEDS IT
+            var audioCtx = new AudioContext();
+            // var audio = new Audio(url);
+            var audio = document.getElementById('mainAudio');
+            var processor = audioCtx.createScriptProcessor(1024, 1, 1);
+            var source;
+            // document.body.appendChild(audio);
+            function listener(){
+                // if(didActivate) return;
+                // didActivate = true;
+                
+                currentSpeed = audio.playbackRate;
+                
+                source = audioCtx.createMediaElementSource(audio);
+                source.connect(processor);
+                source.connect(audioCtx.destination);
+                processor.connect(audioCtx.destination);
+                audio.play();
+            }
+            audio.addEventListener('canplaythrough', listener, false);
+            
+            if (audio.readyState > 3) {
+                listener();
+            }
+    
+            // loop through PCM data and calculate average
+            // volume for a given 2048 sample buffer
+            processor.onaudioprocess = function(evt) {
+                var input = evt.inputBuffer.getChannelData(0);
+                
+                // Averaged volume
+                // var len = input.length,
+                //     total = i = 0,
+                //     rms;
+                // while (i < len) total += Math.abs(input[i++]);
+                // rms = Math.sqrt(total / len);
+                // console.log(( rms * 100 ));
+                // document.getElementById('out').style.opacity = rms;
+                // if(rms > document.getElementById('threshold').value/100){
+                //     audio.playbackRate = document.getElementById('talk').value;
+                // }else{
+                //     console.log('SILENCE');
+                //     audio.playbackRate = document.getElementById('silence').value;
+                // }
+                
+                // Top Volume
+                var topVolume = Math.max(Math.max(...input), Math.abs(Math.min(...input)));
+                // console.log(( topVolume * 100 ));
+                // document.getElementById('out').style.opacity = topVolume;
+                if(topVolume > threshold.value/100){
+                    document.getElementById('out').style.opacity = 1;
+                    if((talk.value !== currentSpeed && !changeFlag) || timeoutCancel !== -1){
+                        clearTimeout(timeoutCancel);
+                        timeoutCancel = -1;
+                        currentSpeed = talk.value;
+                        audio.playbackRate = talk.value;
+                        changeFlag = true;
+                        setTimeout(()=>changeFlag = false, delay.value);
+                    }
+                }else{
+                    if(silence.value !== currentSpeed && !changeFlag){
+                        document.getElementById('out').style.opacity = 0;
+                        currentSpeed = silence.value;
+                        audio.playbackRate = silence.value;
+                        changeFlag = true;
+                        setTimeout(()=>changeFlag = false, delay.value);
+                    }else{
+                        clearTimeout(timeoutCancel);
+                        timeoutCancel = -1;
+                        setTimeout(()=>{
+                            document.getElementById('out').style.opacity = 0;
+                            currentSpeed = silence.value;
+                            audio.playbackRate = silence.value;
+                            changeFlag = true;
+                            setTimeout(()=>changeFlag = false, delay.value);
+                        }, delay.value);
+                    }
+                }
+            };
+            
+        }
+    </script>
+</body>
+
+</html>
